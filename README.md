@@ -1,5 +1,7 @@
 # Golden Axes
 
+![Golden Axes](assets/GoldenAxes.png)
+
 Live interpolation preview for GlyphsApp. Explore your variable font's design space in real time &mdash; scrub through axes, animate, and preview text without exporting.
 
 ---
@@ -73,5 +75,4 @@ Right-click in the Edit View to open the **Golden Axes** submenu:
 - GlyphsApp 3 (build 3062+)
 - A font with 2 or more masters
 
-MIT
-nico.works
+MIT — [nico.works](https://nico.works)
