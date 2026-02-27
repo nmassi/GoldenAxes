@@ -9,6 +9,7 @@ from interpolation_engine import InterpolationEngine
 from drawing_utils import (
 	PREVIEW_COLOR, EXTRAPOLATION_COLOR,
 	draw_filled_path, draw_nodes_for_layer, NODE_COLOR,
+	draw_incompatible_emoji,
 )
 
 
@@ -25,6 +26,7 @@ class GoldenAxes(ReporterPlugin):
 	def start(self):
 		self._showNodes = Glyphs.defaults.get(f"{PREF_KEY}.showNodes", False)
 		self._centerPreview = Glyphs.defaults.get(f"{PREF_KEY}.centerPreview", False)
+		Glyphs.addCallback(self._onUpdate, UPDATEINTERFACE)
 
 	# --- Drawing: Active glyph only (colored overlay) ---
 
@@ -47,7 +49,16 @@ class GoldenAxes(ReporterPlugin):
 
 		axis_values = self._readAxisValues(font)
 		interpLayer = InterpolationEngine.interpolate_layer(font, glyph, axis_values)
-		if not interpLayer:
+
+		# Check if interpolation failed or produced an empty result
+		bezierPath = interpLayer.completeBezierPath if interpLayer else None
+		if not interpLayer or not bezierPath or bezierPath.isEmpty():
+			scale = self.getScale()
+			emojiSize = 48.0 / scale
+			centerX = layer.width / 2.0
+			master = font.masters[0]
+			centerY = (master.ascender + master.descender) / 2.0
+			draw_incompatible_emoji(centerX, centerY, emojiSize)
 			return
 
 		isExtrap = InterpolationEngine.is_extrapolating(font, axis_values)
@@ -61,9 +72,7 @@ class GoldenAxes(ReporterPlugin):
 		NSGraphicsContext.currentContext().saveGraphicsState()
 		transform.concat()
 
-		bezierPath = interpLayer.completeBezierPath
-		if bezierPath:
-			draw_filled_path(bezierPath, color)
+		draw_filled_path(bezierPath, color)
 
 		if self._showNodes:
 			scale = self.getScale()
@@ -195,10 +204,17 @@ class GoldenAxes(ReporterPlugin):
 						newLayer.shapes = sourcLayer.shapes.copy()
 						newLayer.width = sourcLayer.width
 
+	# --- Update listener ---
+
+	@objc.python_method
+	def _onUpdate(self, sender):
+		InterpolationEngine.invalidate_cache()
+
 	# --- Cleanup ---
 
 	@objc.python_method
 	def deactivate(self):
+		Glyphs.removeCallback(self._onUpdate)
 		InterpolationEngine.invalidate_cache()
 
 	@objc.python_method

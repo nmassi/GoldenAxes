@@ -63,10 +63,39 @@ class InterpolationEngine:
 		return None
 
 	@staticmethod
+	def is_glyph_compatible(glyph):
+		"""Check if a glyph is compatible across all masters.
+		Compares path count and node count per path across master layers.
+		"""
+		font = glyph.parent
+		if not font or len(font.masters) < 2:
+			return True
+
+		masterLayers = [glyph.layers[m.id] for m in font.masters if glyph.layers[m.id]]
+		if len(masterLayers) < 2:
+			return False
+
+		refLayer = masterLayers[0]
+		refPathCount = len(refLayer.paths)
+		refNodeCounts = [len(p.nodes) for p in refLayer.paths]
+
+		for layer in masterLayers[1:]:
+			if len(layer.paths) != refPathCount:
+				return False
+			for j, path in enumerate(layer.paths):
+				if len(path.nodes) != refNodeCounts[j]:
+					return False
+
+		return True
+
+	@staticmethod
 	def interpolate_layer(font, glyph, axis_values):
 		"""Interpolate a glyph at arbitrary design-space coordinates.
-		Returns an interpolated GSLayer or None.
+		Returns an interpolated GSLayer, or None if incompatible.
 		"""
+		if not InterpolationEngine.is_glyph_compatible(glyph):
+			return None
+
 		interpolatedFont = InterpolationEngine._get_interpolated_font(font, axis_values)
 		if not interpolatedFont:
 			return None

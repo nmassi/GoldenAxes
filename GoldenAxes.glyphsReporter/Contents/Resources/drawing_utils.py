@@ -50,3 +50,14 @@ def draw_rect_filled(rect, color_tuple):
 	"""Fill a rectangle with the given color."""
 	make_color(*color_tuple).set()
 	NSBezierPath.fillRect_(rect)
+
+
+def draw_incompatible_emoji(x, y, size):
+	"""Draw a 💀 emoji centered at (x, y) with the given point size."""
+	attrs = {
+		NSFontAttributeName: NSFont.systemFontOfSize_(size),
+	}
+	skull = NSAttributedString.alloc().initWithString_attributes_(u"\U0001F480", attrs)
+	textSize = skull.size()
+	drawPoint = NSPoint(x - textSize.width / 2.0, y - textSize.height / 2.0)
+	skull.drawAtPoint_(drawPoint)

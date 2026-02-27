@@ -92,7 +92,12 @@ class GlyphPreviewView(NSView):
 		# Measure widest line in font units
 		lineWidthsUnits = []
 		for line in lines:
-			w = sum(l.width for l in line) if line else 0
+			w = 0
+			for l in line:
+				if isinstance(l, tuple) and l[0] == "incompatible":
+					w += l[1]
+				else:
+					w += l.width
 			lineWidthsUnits.append(w)
 
 		maxLineWidthUnits = max(lineWidthsUnits) if lineWidthsUnits else 0
@@ -122,28 +127,48 @@ class GlyphPreviewView(NSView):
 			if not lineLayers:
 				continue
 
-			# Measure this line's width
-			lineWidthPx = sum(l.width for l in lineLayers) * scale
-
 			# Horizontally center
+			lineWidthPx = 0
+			for l in lineLayers:
+				if isinstance(l, tuple) and l[0] == "incompatible":
+					lineWidthPx += l[1] * scale
+				else:
+					lineWidthPx += l.width * scale
 			x = margin + (availWidth - lineWidthPx) / 2.0
 			y = yStart + lineIdx * lineHeight + self._ascender * scale
 
 			for layer in lineLayers:
-				NSGraphicsContext.currentContext().saveGraphicsState()
+				if isinstance(layer, tuple) and layer[0] == "incompatible":
+					# Draw skull emoji for incompatible glyph
+					glyphWidth = layer[1]
+					emojiSize = totalUnitHeight * scale * 0.5
+					attrs = {
+						NSFontAttributeName: NSFont.systemFontOfSize_(emojiSize),
+					}
+					skull = NSAttributedString.alloc().initWithString_attributes_(u"\U0001F480", attrs)
+					skullSize = skull.size()
+					sx = x + (glyphWidth * scale - skullSize.width) / 2.0
+					# Vertically center in the glyph area (flipped coords: y down)
+					glyphTop = y - self._ascender * scale
+					glyphBottom = y - self._descender * scale
+					sy = (glyphTop + glyphBottom) / 2.0 - skullSize.height / 2.0 + emojiSize * 0.15
+					skull.drawAtPoint_(NSPoint(sx, sy))
+					x += glyphWidth * scale
+				else:
+					NSGraphicsContext.currentContext().saveGraphicsState()
 
-				transform = NSAffineTransform.transform()
-				transform.translateXBy_yBy_(x, y)
-				transform.scaleXBy_yBy_(scale, -scale)
-				transform.concat()
+					transform = NSAffineTransform.transform()
+					transform.translateXBy_yBy_(x, y)
+					transform.scaleXBy_yBy_(scale, -scale)
+					transform.concat()
 
-				bezierPath = layer.completeBezierPath
-				if bezierPath:
-					bezierPath.fill()
+					bezierPath = layer.completeBezierPath
+					if bezierPath:
+						bezierPath.fill()
 
-				NSGraphicsContext.currentContext().restoreGraphicsState()
+					NSGraphicsContext.currentContext().restoreGraphicsState()
 
-				x += layer.width * scale
+					x += layer.width * scale
 
 
 class AnimationHelper(NSObject):
@@ -242,13 +267,6 @@ class GoldenAxesPalette(PalettePlugin):
 
 	@objc.python_method
 	def update(self, sender):
-		try:
-			currentTab = sender.object()
-			if not isinstance(currentTab, type(Glyphs.font.currentTab)):
-				return
-		except:
-			pass
-
 		font = Glyphs.font
 		if not font or len(font.masters) < 2:
 			return
@@ -429,9 +447,19 @@ class GoldenAxesPalette(PalettePlugin):
 			glyph = tabLayer.parent
 			if not glyph:
 				continue
+			if not InterpolationEngine.is_glyph_compatible(glyph):
+				interpLayers.append(("incompatible", tabLayer.width))
+				continue
 			interpGlyph = interpFont.glyphs[glyph.name]
 			if interpGlyph and interpGlyph.layers:
-				interpLayers.append(interpGlyph.layers[0])
+				interpLayer = interpGlyph.layers[0]
+				bp = interpLayer.completeBezierPath
+				if bp and not bp.isEmpty():
+					interpLayers.append(interpLayer)
+				else:
+					interpLayers.append(("incompatible", tabLayer.width))
+			else:
+				interpLayers.append(("incompatible", tabLayer.width))
 
 		self._previewView.setLayers_upm_ascender_descender_(
 			interpLayers, font.upm,
