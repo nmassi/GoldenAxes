@@ -94,7 +94,7 @@ class GlyphPreviewView(NSView):
 		for line in lines:
 			w = 0
 			for l in line:
-				if isinstance(l, tuple) and l[0] == "incompatible":
+				if isinstance(l, tuple):
 					w += l[1]
 				else:
 					w += l.width
@@ -130,7 +130,7 @@ class GlyphPreviewView(NSView):
 			# Horizontally center
 			lineWidthPx = 0
 			for l in lineLayers:
-				if isinstance(l, tuple) and l[0] == "incompatible":
+				if isinstance(l, tuple):
 					lineWidthPx += l[1] * scale
 				else:
 					lineWidthPx += l.width * scale
@@ -138,6 +138,9 @@ class GlyphPreviewView(NSView):
 			y = yStart + lineIdx * lineHeight + self._ascender * scale
 
 			for layer in lineLayers:
+				if isinstance(layer, tuple) and layer[0] == "space":
+					x += layer[1] * scale
+					continue
 				if isinstance(layer, tuple) and layer[0] == "incompatible":
 					# Draw skull emoji for incompatible glyph
 					glyphWidth = layer[1]
@@ -448,18 +451,18 @@ class GoldenAxesPalette(PalettePlugin):
 			if not glyph:
 				continue
 			if not InterpolationEngine.is_glyph_compatible(glyph):
-				interpLayers.append(("incompatible", tabLayer.width))
+				# Only mark as incompatible if glyph actually has paths
+				hasPaths = any(len(glyph.layers[m.id].paths) > 0 for m in font.masters)
+				if hasPaths:
+					interpLayers.append(("incompatible", tabLayer.width))
+				else:
+					interpLayers.append(("space", tabLayer.width))
 				continue
 			interpGlyph = interpFont.glyphs[glyph.name]
 			if interpGlyph and interpGlyph.layers:
-				interpLayer = interpGlyph.layers[0]
-				bp = interpLayer.completeBezierPath
-				if bp and not bp.isEmpty():
-					interpLayers.append(interpLayer)
-				else:
-					interpLayers.append(("incompatible", tabLayer.width))
+				interpLayers.append(interpGlyph.layers[0])
 			else:
-				interpLayers.append(("incompatible", tabLayer.width))
+				interpLayers.append(("space", tabLayer.width))
 
 		self._previewView.setLayers_upm_ascender_descender_(
 			interpLayers, font.upm,

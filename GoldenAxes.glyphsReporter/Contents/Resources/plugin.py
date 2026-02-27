@@ -50,15 +50,17 @@ class GoldenAxes(ReporterPlugin):
 		axis_values = self._readAxisValues(font)
 		interpLayer = InterpolationEngine.interpolate_layer(font, glyph, axis_values)
 
-		# Check if interpolation failed or produced an empty result
-		bezierPath = interpLayer.completeBezierPath if interpLayer else None
-		if not interpLayer or not bezierPath or bezierPath.isEmpty():
-			scale = self.getScale()
-			emojiSize = 48.0 / scale
-			centerX = layer.width / 2.0
-			master = font.masters[0]
-			centerY = (master.ascender + master.descender) / 2.0
-			draw_incompatible_emoji(centerX, centerY, emojiSize)
+		# None means incompatible (has paths but they don't match across masters)
+		if interpLayer is None:
+			# Only show skull if the glyph actually has paths (not a space/empty glyph)
+			hasPaths = any(len(glyph.layers[m.id].paths) > 0 for m in font.masters)
+			if hasPaths:
+				scale = self.getScale()
+				emojiSize = 48.0 / scale
+				centerX = layer.width / 2.0
+				master = font.masters[0]
+				centerY = (master.ascender + master.descender) / 2.0
+				draw_incompatible_emoji(centerX, centerY, emojiSize)
 			return
 
 		isExtrap = InterpolationEngine.is_extrapolating(font, axis_values)
@@ -72,7 +74,9 @@ class GoldenAxes(ReporterPlugin):
 		NSGraphicsContext.currentContext().saveGraphicsState()
 		transform.concat()
 
-		draw_filled_path(bezierPath, color)
+		bezierPath = interpLayer.completeBezierPath
+		if bezierPath:
+			draw_filled_path(bezierPath, color)
 
 		if self._showNodes:
 			scale = self.getScale()
