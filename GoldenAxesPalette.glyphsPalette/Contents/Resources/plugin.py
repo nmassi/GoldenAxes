@@ -12,7 +12,7 @@ NOTIFICATION_NAME = "com.goldenaxes.GoldenAxes.valuesChanged"
 
 ROW_HEIGHT = 22
 TOOLBAR_HEIGHT = 22
-TOP_PADDING = 2
+TOP_PADDING = 10
 BOTTOM_PADDING = 4
 GAP_AFTER_TOOLBAR = 8
 PREVIEW_HEIGHT = 160
@@ -232,8 +232,8 @@ class GoldenAxesPalette(PalettePlugin):
 
 		# Dark mode toggle
 		darkPref = Glyphs.defaults.get(f"{PREF_KEY}.darkPreview", False)
-		self.paletteView.group.darkToggle = SquareButton(
-			(104, TOP_PADDING + 1, 18, 18),
+		self.paletteView.group.darkToggle = Button(
+			(104, TOP_PADDING, 24, TOOLBAR_HEIGHT),
 			u"\u25D1",
 			callback=self._dark_mode_changed,
 			sizeStyle='mini',
@@ -252,7 +252,7 @@ class GoldenAxesPalette(PalettePlugin):
 
 		# Preview area (positioned dynamically in _setupAxes)
 		self.paletteView.group.previewWrapper = Group(
-			(4, TOP_PADDING + TOOLBAR_HEIGHT + GAP_AFTER_TOOLBAR + ROW_HEIGHT + 4, -4, PREVIEW_HEIGHT)
+			(4, TOP_PADDING + TOOLBAR_HEIGHT + GAP_AFTER_TOOLBAR + ROW_HEIGHT + 12, -4, PREVIEW_HEIGHT)
 		)
 		wrapperNS = self.paletteView.group.previewWrapper.getNSView()
 
@@ -276,11 +276,11 @@ class GoldenAxesPalette(PalettePlugin):
 
 	def minHeight(self):
 		n = len(self._currentAxes) if self._currentAxes else 1
-		return TOP_PADDING + TOOLBAR_HEIGHT + GAP_AFTER_TOOLBAR + n * ROW_HEIGHT + PREVIEW_HEIGHT + BOTTOM_PADDING + 4
+		return TOP_PADDING + TOOLBAR_HEIGHT + GAP_AFTER_TOOLBAR + n * ROW_HEIGHT + PREVIEW_HEIGHT + BOTTOM_PADDING + 12
 
 	def maxHeight(self):
 		n = len(self._currentAxes) if self._currentAxes else 1
-		return TOP_PADDING + TOOLBAR_HEIGHT + GAP_AFTER_TOOLBAR + n * ROW_HEIGHT + PREVIEW_HEIGHT + BOTTOM_PADDING + 4
+		return TOP_PADDING + TOOLBAR_HEIGHT + GAP_AFTER_TOOLBAR + n * ROW_HEIGHT + PREVIEW_HEIGHT + BOTTOM_PADDING + 12
 
 	@objc.python_method
 	def update(self, sender):
@@ -306,17 +306,17 @@ class GoldenAxesPalette(PalettePlugin):
 			attrSuffix = f'_{i}'
 
 			label = TextBox(
-				(6, y + 3, 46, 14),
+				(6, y + 2, 46, 16),
 				"",
-				sizeStyle='mini',
+				sizeStyle='small',
 			)
 			setattr(self.paletteView.group, f'label{attrSuffix}', label)
 
-			btn = SquareButton(
-				(52, y + 1, 15, 15),
+			btn = Button(
+				(52, y - 2, 20, TOOLBAR_HEIGHT),
 				u"\u25B6",
 				callback=self._play_callback,
-				sizeStyle='mini',
+				sizeStyle='small',
 			)
 			btn._axisIndex = i
 			btn._axisId = None
@@ -324,7 +324,7 @@ class GoldenAxesPalette(PalettePlugin):
 			setattr(self.paletteView.group, f'play{attrSuffix}', btn)
 
 			slider = Slider(
-				(70, y + 1, -40, 15),
+				(76, y + 1, -46, 15),
 				minValue=0,
 				maxValue=1000,
 				value=0,
@@ -336,10 +336,10 @@ class GoldenAxesPalette(PalettePlugin):
 			setattr(self.paletteView.group, f'slider{attrSuffix}', slider)
 
 			tf = EditText(
-				(-38, y, -4, 17),
+				(-38, y, -4, 19),
 				text="",
 				callback=self._textfield_callback,
-				sizeStyle='mini',
+				sizeStyle='small',
 			)
 			tf._axisIndex = i
 			tf._axisId = None
@@ -407,7 +407,7 @@ class GoldenAxesPalette(PalettePlugin):
 
 		# Reposition preview below axis rows
 		sliderTop = TOP_PADDING + TOOLBAR_HEIGHT + GAP_AFTER_TOOLBAR
-		previewTop = sliderTop + numAxes * ROW_HEIGHT + 4
+		previewTop = sliderTop + numAxes * ROW_HEIGHT + 12
 		previewWrapper = self.paletteView.group.previewWrapper
 		previewWrapper.setPosSize((4, previewTop, -4, PREVIEW_HEIGHT))
 
