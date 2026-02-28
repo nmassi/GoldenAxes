@@ -36,6 +36,7 @@ class GlyphPreviewView(NSView):
 		self._upm = 1000.0
 		self._ascender = 800.0
 		self._descender = -200.0
+		self._darkMode = False
 		return self
 
 	def isFlipped(self):
@@ -53,7 +54,9 @@ class GlyphPreviewView(NSView):
 		self.setNeedsDisplay_(True)
 
 	def drawRect_(self, rect):
-		NSColor.whiteColor().set()
+		bgColor = NSColor.blackColor() if self._darkMode else NSColor.whiteColor()
+		fgColor = NSColor.whiteColor() if self._darkMode else NSColor.blackColor()
+		bgColor.set()
 		NSBezierPath.fillRect_(self.bounds())
 
 		if not self._layers:
@@ -121,7 +124,7 @@ class GlyphPreviewView(NSView):
 		totalTextHeight = lineHeight * numLines - totalUnitHeight * scale * 0.1
 		yStart = margin + (availHeight - totalTextHeight) / 2.0
 
-		NSColor.blackColor().set()
+		fgColor.set()
 
 		for lineIdx, lineLayers in enumerate(lines):
 			if not lineLayers:
@@ -165,6 +168,7 @@ class GlyphPreviewView(NSView):
 					transform.scaleXBy_yBy_(scale, -scale)
 					transform.concat()
 
+					fgColor.set()
 					bezierPath = layer.completeBezierPath
 					if bezierPath:
 						bezierPath.fill()
@@ -226,6 +230,15 @@ class GoldenAxesPalette(PalettePlugin):
 			callback=self._color_changed,
 		)
 
+		# Dark mode toggle
+		darkPref = Glyphs.defaults.get(f"{PREF_KEY}.darkPreview", False)
+		self.paletteView.group.darkToggle = SquareButton(
+			(104, TOP_PADDING + 1, 18, 18),
+			u"\u25D1",
+			callback=self._dark_mode_changed,
+			sizeStyle='mini',
+		)
+
 		# Speed selector
 		savedSpeed = Glyphs.defaults.get(f"{PREF_KEY}.animSpeed", 0)
 		self.paletteView.group.speed = SegmentedButton(
@@ -247,6 +260,7 @@ class GoldenAxesPalette(PalettePlugin):
 			NSMakeRect(0, 0, width - 8, PREVIEW_HEIGHT)
 		)
 		self._previewView.setAutoresizingMask_(NSViewWidthSizable | NSViewHeightSizable)
+		self._previewView._darkMode = bool(darkPref)
 		wrapperNS.addSubview_(self._previewView)
 
 		self.dialog = self.paletteView.group.getNSView()
@@ -426,8 +440,9 @@ class GoldenAxesPalette(PalettePlugin):
 			else:
 				axis_values[aid] = font.masters[0].axes[i]
 
-		# Get interpolated font once
+		# Get interpolated font once (invalidate cache to pick up glyph edits)
 		from interpolation_engine import InterpolationEngine
+		InterpolationEngine.invalidate_cache()
 		interpFont = InterpolationEngine._get_interpolated_font(font, axis_values)
 		if not interpFont:
 			self._previewView.setLayers_upm_ascender_descender_([], font.upm, font.masters[0].ascender, font.masters[0].descender)
@@ -460,7 +475,17 @@ class GoldenAxesPalette(PalettePlugin):
 				continue
 			interpGlyph = interpFont.glyphs[glyph.name]
 			if interpGlyph and interpGlyph.layers:
-				interpLayers.append(interpGlyph.layers[0])
+				interpLayer = interpGlyph.layers[0]
+				bp = interpLayer.completeBezierPath
+				if bp and not bp.isEmpty():
+					interpLayers.append(interpLayer)
+				else:
+					# Interpolation produced empty result — likely broken
+					hasPaths = any(len(glyph.layers[m.id].paths) > 0 for m in font.masters)
+					if hasPaths:
+						interpLayers.append(("incompatible", tabLayer.width))
+					else:
+						interpLayers.append(("space", tabLayer.width))
 			else:
 				interpLayers.append(("space", tabLayer.width))
 
@@ -479,6 +504,12 @@ class GoldenAxesPalette(PalettePlugin):
 		if not isOn:
 			self._stopAllAnimations()
 		self._triggerRedraw()
+
+	@objc.python_method
+	def _dark_mode_changed(self, sender):
+		self._previewView._darkMode = not self._previewView._darkMode
+		Glyphs.defaults[f"{PREF_KEY}.darkPreview"] = self._previewView._darkMode
+		self._previewView.setNeedsDisplay_(True)
 
 	@objc.python_method
 	def _color_changed(self, sender):
