@@ -15,7 +15,9 @@ TOOLBAR_HEIGHT = 22
 TOP_PADDING = 10
 BOTTOM_PADDING = 4
 GAP_AFTER_TOOLBAR = 8
-PREVIEW_HEIGHT = 160
+PREVIEW_SIZES = [120, 200, 320]  # S, M, L
+SIZE_ROW_HEIGHT = 24
+DEFAULT_PREVIEW_SIZE = 1  # M
 
 # Default preview color: blue with 40% opacity
 DEFAULT_COLOR = (0.0, 0.5, 1.0, 0.4)
@@ -204,8 +206,11 @@ class GoldenAxesPalette(PalettePlugin):
 		width = 150
 		# Start with space for 1 axis row; will be rebuilt dynamically
 		initialAxes = 1
-		controlsHeight = TOP_PADDING + TOOLBAR_HEIGHT + GAP_AFTER_TOOLBAR + initialAxes * ROW_HEIGHT
-		height = controlsHeight + PREVIEW_HEIGHT + BOTTOM_PADDING
+		savedSize = Glyphs.defaults.get(f"{PREF_KEY}.previewSize", DEFAULT_PREVIEW_SIZE)
+		self._previewSizeIndex = int(savedSize) if savedSize is not None else DEFAULT_PREVIEW_SIZE
+		previewH = PREVIEW_SIZES[self._previewSizeIndex]
+		controlsHeight = TOP_PADDING + TOOLBAR_HEIGHT + GAP_AFTER_TOOLBAR + initialAxes * ROW_HEIGHT + 12
+		height = controlsHeight + previewH + SIZE_ROW_HEIGHT + BOTTOM_PADDING
 
 		self.paletteView = Window((width, height))
 		self.paletteView.group = Group((0, 0, width, height))
@@ -251,17 +256,31 @@ class GoldenAxesPalette(PalettePlugin):
 		self._speedMultiplier = SPEED_OPTIONS[int(savedSpeed) if savedSpeed is not None else 0]
 
 		# Preview area (positioned dynamically in _setupAxes)
+		previewTop = controlsHeight
 		self.paletteView.group.previewWrapper = Group(
-			(4, TOP_PADDING + TOOLBAR_HEIGHT + GAP_AFTER_TOOLBAR + ROW_HEIGHT + 12, -4, PREVIEW_HEIGHT)
+			(4, previewTop, -4, previewH)
 		)
 		wrapperNS = self.paletteView.group.previewWrapper.getNSView()
 
 		self._previewView = GlyphPreviewView.alloc().initWithFrame_(
-			NSMakeRect(0, 0, width - 8, PREVIEW_HEIGHT)
+			NSMakeRect(0, 0, width - 8, previewH)
 		)
 		self._previewView.setAutoresizingMask_(NSViewWidthSizable | NSViewHeightSizable)
 		self._previewView._darkMode = bool(darkPref)
 		wrapperNS.addSubview_(self._previewView)
+
+		# Size toggle below preview (single full-width button with arrow)
+		self._sizeDirection = 1  # 1 = growing, -1 = shrinking
+		if self._previewSizeIndex >= len(PREVIEW_SIZES) - 1:
+			self._sizeDirection = -1
+		sizeTop = previewTop + previewH + 2
+		arrow = u"\u25BC" if self._sizeDirection == 1 else u"\u25B2"
+		self.paletteView.group.sizeToggle = Button(
+			(4, sizeTop, -4, SIZE_ROW_HEIGHT),
+			arrow,
+			callback=self._size_changed,
+			sizeStyle='mini',
+		)
 
 		self.dialog = self.paletteView.group.getNSView()
 		self._currentAxes = []
@@ -274,13 +293,17 @@ class GoldenAxesPalette(PalettePlugin):
 	def start(self):
 		Glyphs.addCallback(self.update, UPDATEINTERFACE)
 
-	def minHeight(self):
+	@objc.python_method
+	def _calcHeight(self):
 		n = len(self._currentAxes) if self._currentAxes else 1
-		return TOP_PADDING + TOOLBAR_HEIGHT + GAP_AFTER_TOOLBAR + n * ROW_HEIGHT + PREVIEW_HEIGHT + BOTTOM_PADDING + 12
+		previewH = PREVIEW_SIZES[self._previewSizeIndex]
+		return TOP_PADDING + TOOLBAR_HEIGHT + GAP_AFTER_TOOLBAR + n * ROW_HEIGHT + 12 + previewH + SIZE_ROW_HEIGHT + BOTTOM_PADDING
+
+	def minHeight(self):
+		return self._calcHeight()
 
 	def maxHeight(self):
-		n = len(self._currentAxes) if self._currentAxes else 1
-		return TOP_PADDING + TOOLBAR_HEIGHT + GAP_AFTER_TOOLBAR + n * ROW_HEIGHT + PREVIEW_HEIGHT + BOTTOM_PADDING + 12
+		return self._calcHeight()
 
 	@objc.python_method
 	def update(self, sender):
@@ -405,11 +428,40 @@ class GoldenAxesPalette(PalettePlugin):
 			row['tf'].show(True)
 			row['btn'].show(True)
 
-		# Reposition preview below axis rows
+		# Reposition preview and size toggle below axis rows
+		self._repositionPreview(numAxes)
+
+	@objc.python_method
+	def _repositionPreview(self, numAxes=None):
+		if numAxes is None:
+			numAxes = len(self._currentAxes) if self._currentAxes else 1
+		previewH = PREVIEW_SIZES[self._previewSizeIndex]
 		sliderTop = TOP_PADDING + TOOLBAR_HEIGHT + GAP_AFTER_TOOLBAR
 		previewTop = sliderTop + numAxes * ROW_HEIGHT + 12
-		previewWrapper = self.paletteView.group.previewWrapper
-		previewWrapper.setPosSize((4, previewTop, -4, PREVIEW_HEIGHT))
+		self.paletteView.group.previewWrapper.setPosSize((4, previewTop, -4, previewH))
+		sizeTop = previewTop + previewH + 2
+		self.paletteView.group.sizeToggle.setPosSize((4, sizeTop, -4, SIZE_ROW_HEIGHT))
+
+	@objc.python_method
+	def _updateSidebarConstraint(self):
+		"""Find and update the height constraint GlyphsApp placed on our dialog."""
+		targetH = self._calcHeight()
+		dialogView = self.dialog
+		parentView = dialogView.superview()
+		if not parentView:
+			return
+		for c in parentView.constraints():
+			if c.firstItem() == dialogView and c.firstAttribute() == 8:  # NSLayoutAttributeHeight = 8
+				c.setConstant_(targetH)
+				parentView.layoutSubtreeIfNeeded()
+				# Also update the scroll view
+				sv = parentView.superview()
+				while sv:
+					if hasattr(sv, 'documentView'):
+						sv.documentView().layoutSubtreeIfNeeded()
+						break
+					sv = sv.superview()
+				return
 
 	# --- Preview ---
 
@@ -537,6 +589,31 @@ class GoldenAxesPalette(PalettePlugin):
 				float(Glyphs.defaults.get(f"{PREF_KEY}.color.a", DEFAULT_COLOR[3])),
 			)
 		return DEFAULT_COLOR
+
+	@objc.python_method
+	def _size_changed(self, sender):
+		newIdx = self._previewSizeIndex + self._sizeDirection
+		# Clamp and reverse direction at limits
+		if newIdx >= len(PREVIEW_SIZES) - 1:
+			newIdx = len(PREVIEW_SIZES) - 1
+			self._sizeDirection = -1
+		elif newIdx <= 0:
+			newIdx = 0
+			self._sizeDirection = 1
+		self._previewSizeIndex = newIdx
+		Glyphs.defaults[f"{PREF_KEY}.previewSize"] = self._previewSizeIndex
+		# Update arrow
+		arrow = u"\u25BC" if self._sizeDirection == 1 else u"\u25B2"
+		self.paletteView.group.sizeToggle.setTitle(arrow)
+		self._repositionPreview()
+		# Update dialog frame to new height
+		targetH = self._calcHeight()
+		frame = self.dialog.frame()
+		frame.size.height = targetH
+		self.dialog.setFrame_(frame)
+		# Update the sidebar constraint
+		self._updateSidebarConstraint()
+		self._previewView.setNeedsDisplay_(True)
 
 	@objc.python_method
 	def _speed_changed(self, sender):

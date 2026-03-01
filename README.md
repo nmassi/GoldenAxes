@@ -1,12 +1,17 @@
 # Golden Axes
 
-![Golden Axes](assets/GoldenAxes.png)
+![Golden Axes](Assets/GoldenAxes.png)
 
 Live interpolation preview for GlyphsApp. Explore your variable font's design space in real time &mdash; scrub through axes, animate, and preview text without exporting.
 
 ---
 
 ## Installation
+
+1. Download or clone this repository
+2. Double-click **GoldenAxes.glyphsReporter** to install the reporter plugin
+3. Double-click **GoldenAxesPalette.glyphsPalette** to install the palette plugin
+4. Restart GlyphsApp
 
 ## Getting Started
 
@@ -24,6 +29,7 @@ The Golden Axes palette sits in the right sidebar with three sections:
 
 - **On / Off** &mdash; toggle the interpolation preview
 - **Color well** &mdash; choose the overlay color used in Edit View
+- **Dark mode** &mdash; invert the inline preview (black background, white glyphs)
 - **1x / 2x / 3x** &mdash; animation speed multiplier
 
 ### Axis Sliders
@@ -45,6 +51,7 @@ A live text preview below the sliders. It renders whatever you have typed in the
 - Centered horizontally and vertically
 - Line breaks from the Edit View are preserved
 - Uses the font's real ascender and descender values
+- Incompatible glyphs show a 💀 emoji instead of a broken preview
 
 ---
 
@@ -54,6 +61,7 @@ When editing a glyph, Golden Axes draws a colored interpolation overlay on top o
 
 - Color is set from the palette's color well
 - Overlay turns gray when extrapolating beyond the master range
+- Incompatible glyphs display a skull emoji centered in the glyph area
 
 ---
 
