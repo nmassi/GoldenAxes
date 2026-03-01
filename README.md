@@ -1,10 +1,10 @@
 # Golden Axes
 
-![Golden Axes](Assets/GoldenAxes.png)
+![Golden Axes](Assets/GoldenAxes01.png)
 
 Live interpolation preview for GlyphsApp. Explore your variable font's design space in real time &mdash; scrub through axes, animate, and preview text without exporting.
 
----
+![Golden Axes](Assets/GoldenAxes02.png)
 
 ## Installation
 
