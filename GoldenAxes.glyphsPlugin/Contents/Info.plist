@@ -19,8 +19,11 @@
     <string>0.1.0</string>
     <key>CFBundlePackageType</key>
     <string>BNDL</string>
-    <key>NSPrincipalClass</key>
-    <string>GoldenAxes</string>
+    <key>Principal Classes</key>
+    <array>
+        <string>GoldenAxes</string>
+        <string>GoldenAxesPalette</string>
+    </array>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright Golden Axes</string>
     <key>PyMainFileNames</key>

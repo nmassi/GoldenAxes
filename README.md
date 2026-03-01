@@ -9,9 +9,8 @@ Live interpolation preview for GlyphsApp. Explore your variable font's design sp
 ## Installation
 
 1. Download or clone this repository
-2. Double-click **GoldenAxes.glyphsReporter** to install the reporter plugin
-3. Double-click **GoldenAxesPalette.glyphsPalette** to install the palette plugin
-4. Restart GlyphsApp
+2. Double-click **GoldenAxes.glyphsPlugin** to install (includes both reporter and palette)
+3. Restart GlyphsApp
 
 ## Getting Started
 
@@ -23,13 +22,12 @@ Live interpolation preview for GlyphsApp. Explore your variable font's design sp
 
 ## Palette
 
-The Golden Axes palette sits in the right sidebar with three sections:
+The Golden Axes palette sits in the right sidebar with controls and axis sliders.
 
 ### Controls
 
 - **On / Off** &mdash; toggle the interpolation preview
 - **Color well** &mdash; choose the overlay color used in Edit View
-- **Dark mode** &mdash; invert the inline preview (black background, white glyphs)
 - **1x / 2x / 3x** &mdash; animation speed multiplier
 
 ### Axis Sliders
@@ -43,15 +41,9 @@ One row per axis defined in your font &mdash; no limit on the number of axes. Ea
 
 Multiple axes can animate simultaneously.
 
-### Inline Preview
+### Preview Bar
 
-A live text preview below the sliders. It renders whatever you have typed in the current Edit View tab at the selected axis values.
-
-- Text scales automatically to fit the preview area
-- Centered horizontally and vertically
-- Line breaks from the Edit View are preserved
-- Uses the font's real ascender and descender values
-- Incompatible glyphs show a 💀 emoji instead of a broken preview
+The bottom preview bar shows the interpolated text at the current axis values. Golden Axes manages a hidden instance that keeps the preview in sync with the sliders. Incompatible glyphs fall back to "live" mode and are highlighted with a red background.
 
 ---
 
@@ -71,10 +63,13 @@ Right-click in the Edit View to open the **Golden Axes** submenu:
 
 | Option                         | Description                                                                              |
 | ------------------------------ | ---------------------------------------------------------------------------------------- |
+| **Show Edit Overlay**          | Toggle the colored interpolation overlay in Edit View                                    |
 | **Center Preview**             | Center the overlay when its width differs from the current master                        |
 | **Show Nodes**                 | Display on-curve nodes of the interpolated outline                                       |
 | **Make Instance from Current** | Add a new instance to Font Info at the current axis position                             |
 | **Make Master from Current**   | Add a new master at the current axis position with interpolated outlines for every glyph |
+
+*Center Preview* and *Show Nodes* are disabled when the edit overlay is off.
 
 ---
 

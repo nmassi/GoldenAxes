@@ -11,6 +11,7 @@ from drawing_utils import (
 	draw_filled_path, draw_nodes_for_layer, NODE_COLOR,
 	draw_incompatible_emoji,
 )
+from palette import *  # registers GoldenAxesPalette as secondary plugin
 
 
 PREF_KEY = "com.goldenaxes.GoldenAxes"
@@ -24,8 +25,9 @@ class GoldenAxes(ReporterPlugin):
 
 	@objc.python_method
 	def start(self):
-		self._showNodes = Glyphs.defaults.get(f"{PREF_KEY}.showNodes", False)
-		self._centerPreview = Glyphs.defaults.get(f"{PREF_KEY}.centerPreview", False)
+		self._showNodes = bool(Glyphs.defaults.get(f"{PREF_KEY}.showNodes", False))
+		self._centerPreview = bool(Glyphs.defaults.get(f"{PREF_KEY}.centerPreview", False))
+		self._showEditOverlay = bool(Glyphs.defaults.get(f"{PREF_KEY}.showEditOverlay", True))
 		Glyphs.addCallback(self._onUpdate, UPDATEINTERFACE)
 
 	# --- Drawing: Active glyph only (colored overlay) ---
@@ -38,6 +40,9 @@ class GoldenAxes(ReporterPlugin):
 
 		showPreview = Glyphs.defaults.get(f"{PREF_KEY}.showPreview", True)
 		if not showPreview:
+			return
+
+		if not self._showEditOverlay:
 			return
 
 		self._drawOverlay(layer)
@@ -84,6 +89,26 @@ class GoldenAxes(ReporterPlugin):
 
 		NSGraphicsContext.currentContext().restoreGraphicsState()
 
+	# --- Preview bar: red background for incompatible glyphs (only fires in "live" mode) ---
+
+	def drawBackgroundInPreviewLayer_options_(self, layer, options):
+		try:
+			font = layer.parent.parent
+			if not font or len(font.masters) < 2:
+				return
+			glyph = layer.parent
+			if not glyph:
+				return
+			if not InterpolationEngine.is_glyph_compatible(glyph):
+				hasPaths = any(len(glyph.layers[m.id].paths) > 0 for m in font.masters)
+				if hasPaths:
+					NSColor.colorWithCalibratedRed_green_blue_alpha_(0.8, 0.15, 0.1, 0.35).set()
+					desc = font.masters[0].descender
+					asc = font.masters[0].ascender
+					NSBezierPath.fillRect_(NSMakeRect(0, desc, layer.width, asc - desc))
+		except Exception:
+			pass
+
 	# --- Helpers ---
 
 	@objc.python_method
@@ -123,15 +148,23 @@ class GoldenAxes(ReporterPlugin):
 			return []
 
 		submenu = NSMenu.alloc().init()
+		submenu.setAutoenablesItems_(False)
+
+		overlayTitle = u'\u2713 Show Edit Overlay' if self._showEditOverlay else u'Show Edit Overlay'
+		overlayItem = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(overlayTitle, self.toggleEditOverlay_, u'')
+		overlayItem.setTarget_(self)
+		submenu.addItem_(overlayItem)
 
 		centerTitle = u'\u2713 Center Preview' if self._centerPreview else u'Center Preview'
 		centerItem = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(centerTitle, self.toggleCenterPreview_, u'')
 		centerItem.setTarget_(self)
+		centerItem.setEnabled_(self._showEditOverlay)
 		submenu.addItem_(centerItem)
 
 		nodesTitle = u'\u2713 Show Nodes' if self._showNodes else u'Show Nodes'
 		nodesItem = NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(nodesTitle, self.toggleShowNodes_, u'')
 		nodesItem.setTarget_(self)
+		nodesItem.setEnabled_(self._showEditOverlay)
 		submenu.addItem_(nodesItem)
 
 		submenu.addItem_(NSMenuItem.separatorItem())
@@ -157,6 +190,11 @@ class GoldenAxes(ReporterPlugin):
 	def toggleShowNodes_(self, sender):
 		self._showNodes = not self._showNodes
 		Glyphs.defaults[f"{PREF_KEY}.showNodes"] = self._showNodes
+		self._triggerRedraw()
+
+	def toggleEditOverlay_(self, sender):
+		self._showEditOverlay = not bool(self._showEditOverlay)
+		Glyphs.defaults[f"{PREF_KEY}.showEditOverlay"] = self._showEditOverlay
 		self._triggerRedraw()
 
 	def makeInstance_(self, sender):
